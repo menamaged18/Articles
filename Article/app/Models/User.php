@@ -30,4 +30,14 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function articles()
+    {
+        return $this->hasMany(Article::class);
+    }
+
+    public function reactions()
+    {
+        return $this->hasMany(Reaction::class);
+    }
 }
