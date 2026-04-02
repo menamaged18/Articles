@@ -1,0 +1,5 @@
+#HomeContainer {
+    display: flex;
+    margin: 10px;
+    justify-content: center;
+}
