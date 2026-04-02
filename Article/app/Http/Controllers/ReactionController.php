@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Article;
 use Illuminate\Http\Request;
+use App\Models\Reaction;
 
 class ReactionController extends Controller
 {
@@ -12,6 +14,8 @@ class ReactionController extends Controller
         if (!auth()->check()) {
             return response()->json(['message' => 'Unauthorized'], 401);
         }
+
+        Article::findOrFail($articleId);
 
         $request->validate([
             'type' => 'required|boolean'
