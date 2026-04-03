@@ -18,6 +18,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Articles
     Route::post('/articles', [ArticleController::class, 'store']);
+    Route::put('/articles/{id}', [ArticleController::class, 'update']);
+    Route::delete('/articles/{id}', [ArticleController::class, 'destroy']);
 
     // Reactions
     Route::post('/articles/{id}/react', [ReactionController::class, 'react']);

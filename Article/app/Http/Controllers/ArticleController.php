@@ -39,4 +39,21 @@ class ArticleController extends Controller
     {
         return Article::with('user', 'reactions')->findOrFail($id);
     }
+
+    public function update(Request $request, $articleId){
+        $validated = $request->validate([
+            'title' => 'string',
+            'content' => 'string'
+        ]);
+
+        Article::findOrFail($articleId)->update([
+            'title' => $validated['title'],
+            'content' => $validated['content']
+        ]);
+    }
+
+    public function destroy($id){
+        Article::destroy($id);
+        return response(null, 204);
+    }
 }
