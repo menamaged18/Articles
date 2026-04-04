@@ -5,8 +5,7 @@ const API_URL = 'http://127.0.0.1:8000'
 // --------------------
 // GET USERS
 // --------------------
-export const fetchUsers = createAsyncThunk(
-  'users/fetchUsers',
+export const fetchUsers = createAsyncThunk('users/fetchUsers',
   async () => {
     const res = await fetch(API_URL)
     return res.json()
@@ -41,8 +40,7 @@ export const login = createAsyncThunk('auth/login', async (userData, { rejectWit
 // --------------------
 // CREATE USER
 // --------------------
-export const createUser = createAsyncThunk(
-  'users/createUser',
+export const createUser = createAsyncThunk('users/createUser',
   async (userData) => {
     const res = await fetch(API_URL, {
       method: 'POST',

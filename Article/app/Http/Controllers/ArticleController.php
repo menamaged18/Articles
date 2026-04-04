@@ -23,15 +23,39 @@ class ArticleController extends Controller
         return response()->json($article, 201);
     }
 
+    /*
+     * main idea is if the user is logged in fetch if he has interacted with the post or not
+     * else if there is no user fetch all without interactions
+     * */
     public function index()
     {
-        return Article::with('user')
-            ->withCount([
-                'reactions as likes_count' => fn($q) => $q->where('type', 1),
-                'reactions as dislikes_count' => fn($q) => $q->where('type', 0),
-            ])
-            ->latest()
-            ->get();
+        // Get the user from the sanctum guard specifically
+        $user = auth('sanctum')->user();
+
+        $articles = Article::withCount([
+            'reactions as likes_count' => function ($query) {
+                $query->where('type', 1);
+            },
+            'reactions as dislikes_count' => function ($query) {
+                $query->where('type', 0);
+            }
+        ])
+        ->withExists(['reactions as user_reaction' => function ($query) use ($user) {
+            $query->where('user_id', $user?->id);
+        }])
+        ->get()
+        ->map(function ($article) use ($user) {
+            // If user is logged in, find specific reaction type
+            if ($user) {
+                $reaction = $article->reactions()->where('user_id', $user->id)->first();
+                $article->user_reaction = $reaction ? (bool)$reaction->type : null;
+            } else {
+                $article->user_reaction = null;
+            }
+            return $article;
+        });
+
+        return response()->json($articles);
     }
 
     // Single Article by id
