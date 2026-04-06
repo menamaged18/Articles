@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Reaction extends Model
 {
-    protected $fillable = ['user_id','article_id','article_id','type'];
+    protected $fillable = ['user_id', 'article_id', 'type'];
 
     public function user()
     {

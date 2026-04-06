@@ -10,10 +10,6 @@ class ReactionController extends Controller
 {
     public function react(Request $request, $articleId)
     {
-        if (!auth()->check()) {
-            return response()->json(['message' => 'Unauthorized'], 401);
-        }
-
         Article::findOrFail($articleId);
 
         $request->validate([
