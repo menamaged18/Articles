@@ -1,7 +1,9 @@
 import React, { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { articlesAll, articleReact } from '../../store/slices/articleSlice';
+import { useNavigate } from 'react-router-dom';
+import { articlesAll } from '../../store/slices/articleSlice';
 import { Button } from '@/components/ui/button';
+import ReactionButton from '@/components/helper/ReactionButton';
 import {
   Card,
   CardContent,
@@ -9,13 +11,17 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import  AddArticle  from '@/components/helper/AddArticle'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ThumbsUp, ThumbsDown, MessageSquare, Loader2 } from 'lucide-react';
+import { MessageSquare, Loader2, Plus } from 'lucide-react';
 
 const Home = () => {
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const { articles, isLoading } = useSelector((state) => state.articles);
+  const { token } = useSelector((state) => state.users);
+  const [isModalOpen, setIsModalOpen] = React.useState(false);
 
   useEffect(() => {
     dispatch(articlesAll());
@@ -24,8 +30,19 @@ const Home = () => {
   const getInitials = (name) =>
     name?.split(' ').map((n) => n[0]).join('').toUpperCase() || 'U';
 
-  const handleReaction = (articleId, reactType) => {
-    dispatch(articleReact({ articleId, reactType }));
+  const handleCreateClick = () => {
+    if (!token) {
+      alert('You need to be logged in to create an article.');
+      return;
+    }
+    setIsModalOpen(true);
+  };
+
+
+  const handleArticleCreated = () => {
+    // refetch articles 
+    dispatch(articlesAll()); // refresh the list to show new article
+    setIsModalOpen(false);
   };
 
   return (
@@ -40,6 +57,11 @@ const Home = () => {
           <Badge variant="outline" className="px-4 py-1">
             {articles.length} Articles
           </Badge>
+          {/* Create Article Section */}
+          <Button onClick={handleCreateClick} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Create Article
+          </Button>
         </div>
 
         {/* Loading State */}
@@ -73,37 +95,25 @@ const Home = () => {
               <CardFooter className="flex justify-between border-t bg-muted/50 py-3">
                 <div className="flex gap-4">
                   {/* Like Button */}
-                  <button
-                    onClick={() => handleReaction(article.id, true)}
-                    className={`
-                      flex items-center gap-1.5 text-sm transition-all rounded-md px-2 py-1
-                      ${article.userReaction === true
-                        ? 'text-primary font-semibold border border-primary bg-primary/10'
-                        : 'text-muted-foreground hover:text-primary border border-transparent hover:border-primary/50'
-                      }
-                    `}
-                  >
-                    <ThumbsUp className="h-4 w-4" />
-                    {article.likes_count}
-                  </button>
+                  <ReactionButton
+                    type="like"
+                    count={article.likes_count}
+                    articleId={article.id}
+                    userReaction={article.userReaction}
+                  />
 
                   {/* Dislike Button */}
-                  <button
-                    onClick={() => handleReaction(article.id, false)}
-                    className={`
-                      flex items-center gap-1.5 text-sm transition-all rounded-md px-2 py-1
-                      ${article.userReaction === false
-                        ? 'text-destructive font-semibold border border-destructive bg-destructive/10'
-                        : 'text-muted-foreground hover:text-destructive border border-transparent hover:border-destructive/50'
-                      }
-                    `}
-                  >
-                    <ThumbsDown className="h-4 w-4" />
-                    {article.dislikes_count}
-                  </button>
+                  <ReactionButton
+                    type="dislike"
+                    count={article.dislikes_count}
+                    articleId={article.id}
+                    userReaction={article.userReaction}
+                  />
                 </div>
 
-                <Button variant="ghost" size="sm" className="gap-2">
+                <Button variant="ghost" size="sm" className="gap-2" 
+                  onClick={() => navigate(`/articles/${article.id}`)}
+                >
                   <MessageSquare className="h-4 w-4" />
                   Read More
                 </Button>
@@ -112,6 +122,12 @@ const Home = () => {
           ))}
         </div>
       </div>
+
+      <AddArticle
+        open={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={handleArticleCreated}
+      />
     </div>
   );
 };

@@ -21,9 +21,55 @@ export const articleById = createAsyncThunk('articles/byId', async (articleId) =
   return res.json();
 });
 
+// Fetch user Articles 
+export const articlesUser = createAsyncThunk('articles/user', async (_, { rejectWithValue}) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/articles/user`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        }, 
+      });
+
+      const data = await response.json();
+      if (!response.ok) return rejectWithValue(data.message || 'Fetching user Articles failed');
+      return data; 
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+});
+
+// create article for the current user
+export const createArticle = createAsyncThunk(
+  'articles/create',
+  async (articleData, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/articles`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(articleData), 
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        return rejectWithValue(data.message || 'Failed to create article');
+      }
+      return data; 
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+
 // Send a reaction (like/dislike)
-export const articleReact = createAsyncThunk(
-  'articles/react',
+export const articleReact = createAsyncThunk('articles/react',
   async ({ articleId, reactType }, { rejectWithValue, getState }) => {
     try {
       const token = localStorage.getItem('token');
@@ -85,39 +131,76 @@ const articleSlice = createSlice({
         state.error = 'Failed to load article';
       })
 
+      // Fetch user articles
+      .addCase(articlesUser.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(articlesUser.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.articles = action.payload.map((article) => ({
+            ...article,
+            userReaction: article.user_reaction, 
+        }));
+      })
+      .addCase(articlesUser.rejected, (state) => {
+        state.isLoading = false;
+        state.error = 'Failed to load articles';
+      })
+
+      // Create article
+      .addCase(createArticle.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(createArticle.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.articles.unshift(action.payload);
+
+      })
+      .addCase(createArticle.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload || 'Failed to create article';
+      })
+
       // Handle reaction
       .addCase(articleReact.fulfilled, (state, action) => {
-        const reaction = action.payload;       
-        const articleIndex = state.articles.findIndex((a) => a.id === reaction.article_id);
+        const { article_id, type, deleted } = action.payload;
+        
+        // Use == instead of === to handle String vs Number ID issues 
+        // this solves the problem where manually reloading the page to see changes 
+        const articleIndex = state.articles.findIndex((a) => a.id == article_id);
+        
         if (articleIndex === -1) return;
 
-        const article = state.articles[articleIndex];
-        const oldReaction = article.userReaction;   
-        const newReaction = reaction.type;          
+        const article = { ...state.articles[articleIndex] };
+        
+        // Ensure userReaction isn't undefined (important for newly created articles)
+        const oldReaction = article.userReaction ?? null;
 
-        // Adjust counts based on change
-        if (oldReaction === null) {
-          // New reaction
-          if (newReaction === true) article.likes_count += 1;
-          else article.dislikes_count += 1;
-        } else if (oldReaction === true && newReaction === false) {
-          // Switching from like to dislike
-          article.likes_count -= 1;
-          article.dislikes_count += 1;
-        } else if (oldReaction === false && newReaction === true) {
-          // Switching from dislike to like
-          article.dislikes_count -= 1;
-          article.likes_count += 1;
-        } else if (oldReaction === newReaction) {
-          // Same reaction – cancel 
-          if (newReaction === true) article.likes_count -= 1;
-          else article.dislikes_count -= 1;
+        if (deleted) {
+          // Remove Reaction
+          if (oldReaction === true || oldReaction === 1) article.likes_count -= 1;
+          if (oldReaction === false || oldReaction === 0) article.dislikes_count -= 1;
           article.userReaction = null;
-          return;   
+        } else {
+          const newReaction = !!type; 
+          const normalizedOld = oldReaction === null ? null : !!oldReaction;
+
+          if (normalizedOld === null) {
+            newReaction ? article.likes_count += 1 : article.dislikes_count += 1;
+          } else if (normalizedOld !== newReaction) {
+            if (newReaction) {
+              article.likes_count += 1;
+              article.dislikes_count -= 1;
+            } else {
+              article.likes_count -= 1;
+              article.dislikes_count += 1;
+            }
+          }
+          article.userReaction = newReaction;
         }
 
-        // Update userReaction to the new reaction 
-        article.userReaction = newReaction;
+        state.articles[articleIndex] = article;
       })
       .addCase(articleReact.rejected, (state, action) => {
         console.error('Reaction failed:', action.payload);

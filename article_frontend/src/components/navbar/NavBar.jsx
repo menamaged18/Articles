@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { logout } from "../../store/slices/usersSlice";
+import { articlesAll } from "../../store/slices/articleSlice"
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,13 +12,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useNavigate } from "react-router-dom";
 
 const Navbar = () => {
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const { currentUser, token } = useSelector((state) => state.users);
 
+  console.log(currentUser)
+
   const handleLogout = () => {
     dispatch(logout());
+    dispatch(articlesAll());
   };
 
   // Helper to get initials for the Avatar fallback
@@ -36,6 +42,12 @@ const Navbar = () => {
       <div className="flex items-center gap-4">
         {token && currentUser ? (
           <div className="flex items-center gap-4">
+            <button className="text-sm font-medium hidden md:block cursor-pointer"
+              onClick={() => navigate('/userArticles')}
+            >
+              My Articles
+            </button>
+
             <span className="text-sm font-medium hidden md:block">
               {currentUser.name}
             </span>
@@ -65,7 +77,7 @@ const Navbar = () => {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
-                  className="text-destructive focus:bg-destructive focus:text-destructive-foreground"
+                  className="text-destructive focus:bg-destructive "
                   onClick={handleLogout}
                 >
                   Log out

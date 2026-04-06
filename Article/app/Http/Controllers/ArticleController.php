@@ -58,6 +58,36 @@ class ArticleController extends Controller
         return response()->json($articles);
     }
 
+    public function userArticles()
+    {
+        $user = auth('sanctum')->user();
+
+        $articles = Article::where('user_id', $user?->id)
+            ->withCount([
+                'reactions as likes_count' => function ($query) {
+                    $query->where('type', 1);
+                },
+                'reactions as dislikes_count' => function ($query) {
+                    $query->where('type', 0);
+                }
+            ])
+            ->withExists(['reactions as user_reaction' => function ($query) use ($user) {
+                $query->where('user_id', $user?->id);
+            }])
+            ->get()
+            ->map(function ($article) use ($user) {
+                if ($user) {
+                    $reaction = $article->reactions()->where('user_id', $user->id)->first();
+                    $article->user_reaction = $reaction ? (bool) $reaction->type : null;
+                } else {
+                    $article->user_reaction = null;
+                }
+                return $article;
+            });
+
+        return response()->json($articles);
+    }
+
     // Single Article by id
     public function show($id)
     {

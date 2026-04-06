@@ -8,6 +8,7 @@ use App\Http\Controllers\AuthController;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/articles', [ArticleController::class, 'index']);
+Route::get('/articles/user', [ArticleController::class, 'userArticles'])->middleware('auth:sanctum');
 Route::get('/articles/{id}', [ArticleController::class, 'show']);
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -21,7 +22,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/articles/{id}', [ArticleController::class, 'update']);
     Route::delete('/articles/{id}', [ArticleController::class, 'destroy']);
 
+    // user Articles
+//    Route::get('/articles/user', [ArticleController::class, 'userArticles']);
+
     // Reactions
     Route::post('/articles/{id}/react', [ReactionController::class, 'react']);
-    Route::delete('/articles/{id}/react', [ReactionController::class, 'remove']);
+//    Route::delete('/articles/{id}/react', [ReactionController::class, 'remove']);
 });
