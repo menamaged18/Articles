@@ -88,7 +88,7 @@ const Signup = () => {
               />
             </div>
           </CardContent>
-          <CardFooter>
+          <CardFooter className='mt-6'>
             <Button className="w-full" type="submit" disabled={loading}>
               {loading ? (
                 <>

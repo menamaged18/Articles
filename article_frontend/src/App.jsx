@@ -5,6 +5,9 @@ import Login from './pages/Login/Login'
 import Signup from './pages/Signup/Signup'
 import Article from './pages/Article/Article'
 import UserArticles from './pages/ArticlesUser/ArticlesUser'
+import EditArticles from './pages/ArticleEdit/ArticleEdit'
+import UserProfile from './pages/UserProfile/UserProfile'
+import { Toaster } from "@/components/ui/sonner"
 import './App.css'
 
 function App() {
@@ -19,7 +22,10 @@ function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/articles/:id" element={<Article />} />
           <Route path="/userArticles" element={<UserArticles />} />
+          <Route path="/articles/edit/:id" element={<EditArticles />} />
+          <Route path="/profile" element={<UserProfile />} />
         </Routes>
+        <Toaster position="top-center" richColors />
       </main>
     </BrowserRouter>
   )

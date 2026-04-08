@@ -2,13 +2,27 @@ import React from 'react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, MessageSquare } from 'lucide-react';
+import { Calendar, MessageSquare, MoreVertical } from 'lucide-react';
 import ReactionButton from '@/components/helper/ReactionButton';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const getInitials = (name) =>
   name?.split(' ').map((n) => n[0]).join('').toUpperCase() || 'U';
 
-const ArticleCard = ({ article, isFullPage = false, actionLabel = "Comment", onActionClick }) => {
+const ArticleCard = ({ 
+  article, 
+  isFullPage = false, 
+  actionLabel = "Comment", 
+  onActionClick,
+  showOwnerActions = false,
+  onEdit,
+  onDelete
+}) => {
   if (!article) return null;
 
   const formattedDate = new Date(article.created_at).toLocaleDateString('en-US', {
@@ -23,15 +37,44 @@ const ArticleCard = ({ article, isFullPage = false, actionLabel = "Comment", onA
     }
   };
 
+  const handleEdit = () => {
+    if (onEdit) onEdit(article.id);
+  };
+
+  const handleDelete = () => {
+    if (onDelete) onDelete(article);
+  };
+
   return (
     <article className="space-y-8">
-      {/* Header section with badge and title */}
+      {/* Header section with badge, title, and optional menu */}
       <div className="space-y-4">
         <Badge variant="secondary" className="mb-2">Community Post</Badge>
+
+        <div className="flex justify-between items-start">
+        
         <h1 className={`font-extrabold tracking-tight ${isFullPage ? 'text-4xl lg:text-5xl' : 'text-2xl lg:text-3xl'}`}>
           {article.title}
         </h1>
-
+        {/* Three dots Actions */}
+        {showOwnerActions && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleEdit}>
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDelete} className="text-destructive">
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+        </div>
         <div className="flex items-center gap-4 py-4 border-y">
           <Avatar className="h-12 w-12 border">
             <AvatarFallback className="bg-primary/5 text-primary">

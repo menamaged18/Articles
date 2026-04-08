@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ArticleController;
+use App\Http\Controllers\CommentController;
 use App\Http\Controllers\ReactionController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
@@ -10,6 +11,8 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::get('/articles', [ArticleController::class, 'index']);
 Route::get('/articles/user', [ArticleController::class, 'userArticles'])->middleware('auth:sanctum');
 Route::get('/articles/{id}', [ArticleController::class, 'show']);
+
+Route::get('/articles/{article}/comments', [CommentController::class, 'index']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -23,9 +26,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/articles/{id}', [ArticleController::class, 'destroy']);
 
     // user Articles
-//    Route::get('/articles/user', [ArticleController::class, 'userArticles']);
+    // Route::get('/articles/user', [ArticleController::class, 'userArticles']);
 
     // Reactions
     Route::post('/articles/{id}/react', [ReactionController::class, 'react']);
-//    Route::delete('/articles/{id}/react', [ReactionController::class, 'remove']);
+
+    // Comments
+    Route::post('/articles/{article}/comments', [CommentController::class, 'store']);
+    Route::put('/comments/{comment}', [CommentController::class, 'update']);
+    Route::delete('/comments/{comment}', [CommentController::class, 'destroy']);
 });

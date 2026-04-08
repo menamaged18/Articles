@@ -3,15 +3,12 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 const API_URL = 'http://127.0.0.1:8000/api';
 
 // Fetch all articles
-export const articlesAll = createAsyncThunk('articles/all', async () => {
+export const articlesAll = createAsyncThunk('articles/all', async (page = 1) => {
   const token = localStorage.getItem('token');
   const headers = { 'Content-Type': 'application/json' };
-  
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
+  if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(`${API_URL}/articles`, { headers });
+  const res = await fetch(`${API_URL}/articles?page=${page}`, { headers });
   return res.json();
 });
 
@@ -22,10 +19,11 @@ export const articleById = createAsyncThunk('articles/byId', async (articleId) =
 });
 
 // Fetch user Articles 
-export const articlesUser = createAsyncThunk('articles/user', async (_, { rejectWithValue}) => {
+export const articlesUser = createAsyncThunk('articles/user', async (page = 1, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/articles/user`, {
+      // Added ?page= parameter
+      const response = await fetch(`${API_URL}/articles/user?page=${page}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -40,6 +38,54 @@ export const articlesUser = createAsyncThunk('articles/user', async (_, { reject
       return rejectWithValue(error.message);
     }
 });
+
+// Update Article
+export const articleUpdateById = createAsyncThunk('articles/update', 
+  async ({ articleId, updatedArticle }, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/articles/${articleId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updatedArticle)
+      });
+      
+      const data = await response.json();
+      if (!response.ok) return rejectWithValue(data.message || 'Update failed');
+      return data;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Delete Article
+export const articleDeleteById = createAsyncThunk('articles/remove', 
+  async (articleId, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/articles/${articleId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        return rejectWithValue(data.message || 'Delete failed');
+      }
+      
+      return { id: articleId }; // Return the ID of deleted article
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
 
 // create article for the current user
 export const createArticle = createAsyncThunk(
@@ -97,6 +143,11 @@ const articleSlice = createSlice({
   initialState: {
     articles: [],          
     article: null,
+    pagination: {
+      currentPage: 1,
+      lastPage: 1,
+      hasNextPage: true, // this helps in Infinite Scroll
+    },
     isLoading: false,
     error: null,
   },
@@ -109,10 +160,26 @@ const articleSlice = createSlice({
       })
       .addCase(articlesAll.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.articles = action.payload.map((article) => ({
-            ...article,
-            userReaction: article.user_reaction, 
+        
+        // Format the new incoming articles
+        const newArticles = action.payload.data.map((article) => ({
+          ...article,
+          userReaction: article.user_reaction !== null ? Boolean(Number(article.user_reaction)) : null,
         }));
+
+        // If it's Page 1: Replace everything (refresh/initial load)
+        // If it's page > 1: Append to existing list
+        if (action.payload.current_page === 1) {
+          state.articles = newArticles;
+        } else {
+          state.articles = [...state.articles, ...newArticles];
+        }
+
+        state.pagination = {
+          currentPage: action.payload.current_page,
+          lastPage: action.payload.last_page,
+          hasNextPage: action.payload.current_page < action.payload.last_page,
+        };
       })
       .addCase(articlesAll.rejected, (state) => {
         state.isLoading = false;
@@ -138,10 +205,25 @@ const articleSlice = createSlice({
       })
       .addCase(articlesUser.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.articles = action.payload.map((article) => ({
+        
+        const newArticles = action.payload.data.map((article) => ({
             ...article,
-            userReaction: article.user_reaction, 
+            userReaction: article.user_reaction !== null ? Boolean(Number(article.user_reaction)) : null,
         }));
+
+        // Logic for Infinite Scroll: 
+        // If page 1, reset list. If page > 1, append.
+        if (action.payload.current_page === 1) {
+          state.articles = newArticles;
+        } else {
+          state.articles = [...state.articles, ...newArticles];
+        }
+
+        state.pagination = {
+          currentPage: action.payload.current_page,
+          lastPage: action.payload.last_page,
+          hasNextPage: action.payload.current_page < action.payload.last_page,
+        };
       })
       .addCase(articlesUser.rejected, (state) => {
         state.isLoading = false;
@@ -161,6 +243,53 @@ const articleSlice = createSlice({
       .addCase(createArticle.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload || 'Failed to create article';
+      })
+
+      // Update Article
+      .addCase(articleUpdateById.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(articleUpdateById.fulfilled, (state, action) => {
+        state.isLoading = false;
+        const updatedArticle = action.payload;
+        
+        // Update in articles array to trigger in frontend
+        const index = state.articles.findIndex(a => a.id == updatedArticle.id);
+        if (index !== -1) {
+          state.articles[index] = { ...state.articles[index], ...updatedArticle };
+        }
+
+        // Update article if it's the one being viewed
+        if (state.article && state.article.id == updatedArticle.id) {
+          state.article = { ...state.article, ...updatedArticle };
+        }
+
+      })
+      .addCase(articleUpdateById.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload || 'Failed to update article';
+      })
+
+      // Article Deletion
+      .addCase(articleDeleteById.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(articleDeleteById.fulfilled, (state, action) => {
+        state.isLoading = false;
+        const { id } = action.payload;
+        
+        // Remove from articles array (Update state)
+        state.articles = state.articles.filter(article => article.id != id);
+        // Clear single article if it was deleted
+        if (state.article && state.article.id == id) {
+          state.article = null;
+        }
+      })
+      .addCase(articleDeleteById.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload || 'Failed to delete article';
       })
 
       // Handle reaction
