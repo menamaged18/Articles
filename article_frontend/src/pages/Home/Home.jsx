@@ -97,7 +97,7 @@ const Home = () => {
 
               <CardContent className="space-y-2">
                 <CardTitle className="text-xl">{article.title}</CardTitle>
-                <p className="text-muted-foreground line-clamp-3">{article.content}</p>
+                <p className="text-muted-foreground line-clamp-3">{article.summary}</p>
               </CardContent>
 
               <CardFooter className="flex justify-between border-t bg-muted/50 py-3">

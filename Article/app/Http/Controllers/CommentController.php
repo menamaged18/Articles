@@ -13,7 +13,7 @@ class CommentController extends Controller
      */
     public function index(Article $article)
     {
-        return $article->comments()->with('user')->latest()->get();
+        return $article->comments()->with('user')->latest()->paginate(3);
     }
 
     /**

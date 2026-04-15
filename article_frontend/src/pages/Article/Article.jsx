@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { articlesAll } from '@/store/slices/articleSlice';
+import { articleById } from '@/store/slices/articleSlice';
 import { fetchComments, createComment, updateComment, deleteComment } from '@/store/slices/commentsSlice';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, MessageSquare } from 'lucide-react';
 import ArticleCard from '@/components/helper/ArticleCard';
 import CommentItem from '@/components/helper/CommentItem';
-import { toast } from "sonner"
+import { toast } from 'sonner';
 
 const Article = () => {
   const { id } = useParams();
@@ -15,50 +15,55 @@ const Article = () => {
   const dispatch = useDispatch();
   const articleId = parseInt(id);
 
-  // Article data
-  const article = useSelector((state) => state.articles.articles.find((a) => a.id === articleId));
-
-  // User Exist or not
+  // Single article from store
+  const article = useSelector((state) => state.articles.article);
+  const articleLoading = useSelector((state) => state.articles.isLoading);
   const { token } = useSelector((state) => state.users);
 
-  // Comments data
-  const comments = useSelector((state) => state.comments.commentsByArticle[articleId] || []);
+  // Comments
+  const commentsState = useSelector((state) => state.comments.commentsByArticle[articleId]);
+  const comments = commentsState?.data || [];
+  const meta = commentsState?.meta || { hasNextPage: false, currentPage: 1 };
   const commentsLoading = useSelector((state) => state.comments.loading);
 
-  // Local state for new comment input
+  const [currentPage, setCurrentPage] = useState(1);
   const [newCommentContent, setNewCommentContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch article if not in store
-  useEffect(() => {
-    if (!article) {
-      dispatch(articlesAll());
-    }
-  }, [article, dispatch]);
-
-  // Fetch comments when articleId is available
+  // Fetch article when id changes
   useEffect(() => {
     if (articleId) {
-      dispatch(fetchComments(articleId));
+      dispatch(articleById(articleId));
     }
   }, [articleId, dispatch]);
+
+  // Fetch comments
+  useEffect(() => {
+    if (articleId) {
+      dispatch(fetchComments({ articleId, page: 1 }));
+    }
+  }, [articleId, dispatch]);
+
+  const handleLoadMore = () => {
+    const nextPage = currentPage + 1;
+    setCurrentPage(nextPage);
+    dispatch(fetchComments({ articleId, page: nextPage }));
+  };
 
   const handleAddComment = async (e) => {
     e.preventDefault();
     if (!newCommentContent.trim()) return;
-
-    // if no user prevent sending comment
-    if(!token) {
-      toast.warning("You Need To Be Logged-in first")
-      return
-    };
-
+    if (!token) {
+      toast.warning('You need to be logged in first');
+      return;
+    }
     setIsSubmitting(true);
     try {
       await dispatch(createComment({ articleId, content: newCommentContent })).unwrap();
       setNewCommentContent('');
+      toast.success('Comment posted!');
     } catch (error) {
-      console.error('Failed to add comment:', error);
+      toast.error(error || 'Failed to add comment');
     } finally {
       setIsSubmitting(false);
     }
@@ -67,8 +72,9 @@ const Article = () => {
   const handleUpdateComment = async (commentId, newContent) => {
     try {
       await dispatch(updateComment({ commentId, content: newContent })).unwrap();
+      toast.success('Comment updated');
     } catch (error) {
-      console.error('Failed to update comment:', error);
+      toast.error(error || 'Failed to update comment');
     }
   };
 
@@ -76,16 +82,25 @@ const Article = () => {
     if (window.confirm('Are you sure you want to delete this comment?')) {
       try {
         await dispatch(deleteComment(commentId)).unwrap();
+        toast.success('Comment deleted');
       } catch (error) {
-        console.error('Failed to delete comment:', error);
+        toast.error(error || 'Failed to delete comment');
       }
     }
   };
 
-  if (!article) {
+  if (articleLoading && !article) {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
         <p className="text-muted-foreground animate-pulse">Loading article...</p>
+      </div>
+    );
+  }
+
+  if (!article) {
+    return (
+      <div className="flex justify-center items-center min-h-[60vh]">
+        <p className="text-muted-foreground">Article not found.</p>
       </div>
     );
   }
@@ -110,14 +125,13 @@ const Article = () => {
         }}
       />
 
-      {/* Comments Section */}
+      {/* Comments Section – unchanged */}
       <div className="mt-12 pt-8 border-t" id="comments-section">
         <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
           <MessageSquare className="h-5 w-5" />
           Comments ({comments.length})
         </h2>
 
-        {/* Add Comment Form */}
         <form onSubmit={handleAddComment} className="mb-8">
           <div className="flex gap-3">
             <div className="flex-1">
@@ -137,7 +151,6 @@ const Article = () => {
           </div>
         </form>
 
-        {/* Comments List */}
         {commentsLoading && comments.length === 0 ? (
           <div className="space-y-4">
             {[...Array(3)].map((_, i) => (
@@ -165,6 +178,13 @@ const Article = () => {
                 onDelete={handleDeleteComment}
               />
             ))}
+            {meta.hasNextPage && (
+              <div className="mt-8 flex justify-center">
+                <Button variant="outline" onClick={handleLoadMore} disabled={commentsLoading}>
+                  {commentsLoading ? 'Loading...' : 'Load More Comments'}
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>

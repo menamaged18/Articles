@@ -148,6 +148,7 @@ const UserArticles = () => {
             showOwnerActions={true}
             onEdit={handleEditArticle}
             onDelete={handleDeleteClick}
+            summary={true}
           />
         ))}
       </div>

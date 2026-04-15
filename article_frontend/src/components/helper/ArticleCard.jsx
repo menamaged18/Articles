@@ -21,7 +21,8 @@ const ArticleCard = ({
   onActionClick,
   showOwnerActions = false,
   onEdit,
-  onDelete
+  onDelete,
+  summary
 }) => {
   if (!article) return null;
 
@@ -94,7 +95,7 @@ const ArticleCard = ({
       {/* Content */}
       <div className="prose prose-slate max-w-none dark:prose-invert">
         <p className={`text-foreground/90 whitespace-pre-wrap ${!isFullPage ? 'line-clamp-3' : ''}`}>
-          {article.content}
+          {summary? article.summary: article.content}
         </p>
       </div>
 

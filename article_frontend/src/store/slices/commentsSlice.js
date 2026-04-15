@@ -2,30 +2,42 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
 const API_URL = 'http://127.0.0.1:8000/api';
 
-// Fetch all comments for an article 
-export const fetchComments = createAsyncThunk('comments/fetch',
-  async (articleId, { rejectWithValue }) => {
+// Fetch all comments for an article (paginated)
+export const fetchComments = createAsyncThunk(
+  'comments/fetch',
+  async ({ articleId, page = 1 }, { rejectWithValue }) => {
     try {
-      const response = await fetch(`${API_URL}/articles/${articleId}/comments`);
+      const response = await fetch(`${API_URL}/articles/${articleId}/comments?page=${page}`);
       const data = await response.json();
-      if (!response.ok) return rejectWithValue(data.message || 'Failed to fetch comments');
-      return { articleId, comments: data };
+      if (!response.ok) return rejectWithValue(data.message || 'Failed to fetch');
+
+      return {
+        articleId,
+        comments: data.data,          // array of comments
+        meta: {
+          currentPage: data.current_page,
+          lastPage: data.last_page,
+          hasNextPage: data.current_page < data.last_page,
+        },
+        isNewPage: page > 1,
+      };
     } catch (error) {
       return rejectWithValue(error.message);
     }
   }
 );
 
-// Create a new comment 
-export const createComment = createAsyncThunk('comments/create',
-  async ({ articleId, content }, { rejectWithValue}) => {
+// Create a new comment
+export const createComment = createAsyncThunk(
+  'comments/create',
+  async ({ articleId, content }, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/articles/${articleId}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          Accept: 'application/json',
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ content }),
@@ -39,8 +51,9 @@ export const createComment = createAsyncThunk('comments/create',
   }
 );
 
-// Update an existing comment 
-export const updateComment = createAsyncThunk('comments/update',
+// Update an existing comment
+export const updateComment = createAsyncThunk(
+  'comments/update',
   async ({ commentId, content }, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem('token');
@@ -48,7 +61,7 @@ export const updateComment = createAsyncThunk('comments/update',
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          Accept: 'application/json',
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ content }),
@@ -62,8 +75,9 @@ export const updateComment = createAsyncThunk('comments/update',
   }
 );
 
-// Delete a comment 
-export const deleteComment = createAsyncThunk('comments/delete',
+// Delete a comment
+export const deleteComment = createAsyncThunk(
+  'comments/delete',
   async (commentId, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem('token');
@@ -71,7 +85,7 @@ export const deleteComment = createAsyncThunk('comments/delete',
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          Accept: 'application/json',
           Authorization: `Bearer ${token}`,
         },
       });
@@ -89,7 +103,7 @@ export const deleteComment = createAsyncThunk('comments/delete',
 const commentsSlice = createSlice({
   name: 'comments',
   initialState: {
-    // Store comments per articleId: { [articleId]: arrayOfComments }
+    // Each article stores: { data: [], meta: { currentPage, lastPage, hasNextPage } }
     commentsByArticle: {},
     loading: false,
     error: null,
@@ -104,22 +118,33 @@ const commentsSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // Fetch comments
+      // ========== FETCH COMMENTS ==========
       .addCase(fetchComments.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchComments.fulfilled, (state, action) => {
         state.loading = false;
-        const { articleId, comments } = action.payload;
-        state.commentsByArticle[articleId] = comments;
+        const { articleId, comments, meta, isNewPage } = action.payload;
+
+        if (!state.commentsByArticle[articleId] || !isNewPage) {
+          // First page or refresh
+          state.commentsByArticle[articleId] = {
+            data: comments,
+            meta: meta,
+          };
+        } else {
+          // Append next page
+          state.commentsByArticle[articleId].data.push(...comments);
+          state.commentsByArticle[articleId].meta = meta;
+        }
       })
       .addCase(fetchComments.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || 'Failed to load comments';
       })
 
-      // Create comment
+      // ========== CREATE COMMENT ==========
       .addCase(createComment.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -128,9 +153,14 @@ const commentsSlice = createSlice({
         state.loading = false;
         const { articleId, comment } = action.payload;
         if (state.commentsByArticle[articleId]) {
-          state.commentsByArticle[articleId] = [comment, ...state.commentsByArticle[articleId]];
+          // Prepend new comment to the data array
+          state.commentsByArticle[articleId].data.unshift(comment);
         } else {
-          state.commentsByArticle[articleId] = [comment];
+          // No comments loaded yet, create a new entry
+          state.commentsByArticle[articleId] = {
+            data: [comment],
+            meta: { currentPage: 1, lastPage: 1, hasNextPage: false },
+          };
         }
       })
       .addCase(createComment.rejected, (state, action) => {
@@ -138,7 +168,7 @@ const commentsSlice = createSlice({
         state.error = action.payload || 'Failed to create comment';
       })
 
-      // Update comment
+      // ========== UPDATE COMMENT ==========
       .addCase(updateComment.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -146,11 +176,12 @@ const commentsSlice = createSlice({
       .addCase(updateComment.fulfilled, (state, action) => {
         state.loading = false;
         const updatedComment = action.payload;
-        // Find the article that contains this comment
+        // Find the article containing this comment and update it
         for (const articleId in state.commentsByArticle) {
-          const index = state.commentsByArticle[articleId].findIndex(c => c.id === updatedComment.id);
+          const articleComments = state.commentsByArticle[articleId];
+          const index = articleComments.data.findIndex(c => c.id === updatedComment.id);
           if (index !== -1) {
-            state.commentsByArticle[articleId][index] = updatedComment;
+            articleComments.data[index] = updatedComment;
             break;
           }
         }
@@ -160,7 +191,7 @@ const commentsSlice = createSlice({
         state.error = action.payload || 'Failed to update comment';
       })
 
-      // Delete comment
+      // ========== DELETE COMMENT ==========
       .addCase(deleteComment.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -168,9 +199,9 @@ const commentsSlice = createSlice({
       .addCase(deleteComment.fulfilled, (state, action) => {
         state.loading = false;
         const { id: commentId } = action.payload;
-        // Update State and Remove from all article comment lists
         for (const articleId in state.commentsByArticle) {
-          state.commentsByArticle[articleId] = state.commentsByArticle[articleId].filter(c => c.id !== commentId);
+          const articleComments = state.commentsByArticle[articleId];
+          articleComments.data = articleComments.data.filter(c => c.id !== commentId);
         }
       })
       .addCase(deleteComment.rejected, (state, action) => {

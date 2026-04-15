@@ -17,6 +17,7 @@ const AddArticle = ({ open, onClose, onSuccess }) => {
   const dispatch = useDispatch();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [summary, setSummary] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -31,10 +32,12 @@ const AddArticle = ({ open, onClose, onSuccess }) => {
     setError('');
 
     try {
-      await dispatch(createArticle({ title, content })).unwrap();
+      // Send summary only if it's not empty (backend will fallback to auto‑generated)
+      await dispatch(createArticle({ title, content, summary: summary.trim() || undefined })).unwrap();
       // Reset form
       setTitle('');
       setContent('');
+      setSummary('');
       onSuccess(); // close modal and refresh articles
     } catch (err) {
       setError(err || 'Failed to create article. Please try again.');
@@ -49,7 +52,7 @@ const AddArticle = ({ open, onClose, onSuccess }) => {
         <DialogHeader>
           <DialogTitle>Create New Article</DialogTitle>
           <DialogDescription>
-            Share your thoughts with the community. Fill in the title and content below.
+            Share your thoughts with the community. Fill in the title, summary (optional), and content below.
           </DialogDescription>
         </DialogHeader>
 
@@ -65,6 +68,21 @@ const AddArticle = ({ open, onClose, onSuccess }) => {
               placeholder="Enter a title..."
               disabled={isSubmitting}
               autoFocus
+            />
+          </div>
+
+          {/* New summary field */}
+          <div className="space-y-2">
+            <label htmlFor="summary" className="text-sm font-medium">
+              Summary (optional)
+            </label>
+            <Textarea
+              id="summary"
+              value={summary}
+              onChange={(e) => setSummary(e.target.value)}
+              placeholder="A short summary of your article (if empty, it will be auto‑generated)"
+              rows={2}
+              disabled={isSubmitting}
             />
           </div>
 

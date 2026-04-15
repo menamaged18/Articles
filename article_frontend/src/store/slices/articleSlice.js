@@ -1,6 +1,8 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
 const API_URL = 'http://127.0.0.1:8000/api';
+// const API_URL = 'https://measuring-polished-project-covers.trycloudflare.com';
+
 
 // Fetch all articles
 export const articlesAll = createAsyncThunk('articles/all', async (page = 1) => {
@@ -293,44 +295,104 @@ const articleSlice = createSlice({
       })
 
       // Handle reaction
+      // .addCase(articleReact.fulfilled, (state, action) => {
+      //   const { article_id, type, deleted } = action.payload;
+        
+      //   // Use == instead of === to handle String vs Number ID issues 
+      //   // this solves the problem where manually reloading the page to see changes 
+      //   const articleIndex = state.articles.findIndex((a) => a.id == article_id);
+        
+      //   if (articleIndex === -1) return;
+
+      //   const article = { ...state.articles[articleIndex] };
+        
+      //   // Ensure userReaction isn't undefined (important for newly created articles)
+      //   const oldReaction = article.userReaction ?? null;
+
+      //   if (deleted) {
+      //     // Remove Reaction
+      //     if (oldReaction === true || oldReaction === 1) article.likes_count -= 1;
+      //     if (oldReaction === false || oldReaction === 0) article.dislikes_count -= 1;
+      //     article.userReaction = null;
+      //   } else {
+      //     const newReaction = !!type; 
+      //     const normalizedOld = oldReaction === null ? null : !!oldReaction;
+
+      //     if (normalizedOld === null) {
+      //       newReaction ? article.likes_count += 1 : article.dislikes_count += 1;
+      //     } else if (normalizedOld !== newReaction) {
+      //       if (newReaction) {
+      //         article.likes_count += 1;
+      //         article.dislikes_count -= 1;
+      //       } else {
+      //         article.likes_count -= 1;
+      //         article.dislikes_count += 1;
+      //       }
+      //     }
+      //     article.userReaction = newReaction;
+      //   }
+
+      //   state.articles[articleIndex] = article;
+      // })
       .addCase(articleReact.fulfilled, (state, action) => {
         const { article_id, type, deleted } = action.payload;
         
-        // Use == instead of === to handle String vs Number ID issues 
-        // this solves the problem where manually reloading the page to see changes 
+        // Update in articles list (existing code)
         const articleIndex = state.articles.findIndex((a) => a.id == article_id);
-        
-        if (articleIndex === -1) return;
+        if (articleIndex !== -1) {
+          const article = { ...state.articles[articleIndex] };
+          const oldReaction = article.userReaction ?? null;
 
-        const article = { ...state.articles[articleIndex] };
-        
-        // Ensure userReaction isn't undefined (important for newly created articles)
-        const oldReaction = article.userReaction ?? null;
-
-        if (deleted) {
-          // Remove Reaction
-          if (oldReaction === true || oldReaction === 1) article.likes_count -= 1;
-          if (oldReaction === false || oldReaction === 0) article.dislikes_count -= 1;
-          article.userReaction = null;
-        } else {
-          const newReaction = !!type; 
-          const normalizedOld = oldReaction === null ? null : !!oldReaction;
-
-          if (normalizedOld === null) {
-            newReaction ? article.likes_count += 1 : article.dislikes_count += 1;
-          } else if (normalizedOld !== newReaction) {
-            if (newReaction) {
-              article.likes_count += 1;
-              article.dislikes_count -= 1;
-            } else {
-              article.likes_count -= 1;
-              article.dislikes_count += 1;
+          if (deleted) {
+            if (oldReaction === true || oldReaction === 1) article.likes_count -= 1;
+            if (oldReaction === false || oldReaction === 0) article.dislikes_count -= 1;
+            article.userReaction = null;
+          } else {
+            const newReaction = !!type;
+            const normalizedOld = oldReaction === null ? null : !!oldReaction;
+            if (normalizedOld === null) {
+              newReaction ? article.likes_count += 1 : article.dislikes_count += 1;
+            } else if (normalizedOld !== newReaction) {
+              if (newReaction) {
+                article.likes_count += 1;
+                article.dislikes_count -= 1;
+              } else {
+                article.likes_count -= 1;
+                article.dislikes_count += 1;
+              }
             }
+            article.userReaction = newReaction;
           }
-          article.userReaction = newReaction;
+          state.articles[articleIndex] = article;
         }
 
-        state.articles[articleIndex] = article;
+        // Also update single article view if it's the same article
+        if (state.article && state.article.id == article_id) {
+          const updatedArticle = { ...state.article };
+          const oldReaction = updatedArticle.userReaction ?? null;
+
+          if (deleted) {
+            if (oldReaction === true || oldReaction === 1) updatedArticle.likes_count -= 1;
+            if (oldReaction === false || oldReaction === 0) updatedArticle.dislikes_count -= 1;
+            updatedArticle.userReaction = null;
+          } else {
+            const newReaction = !!type;
+            const normalizedOld = oldReaction === null ? null : !!oldReaction;
+            if (normalizedOld === null) {
+              newReaction ? updatedArticle.likes_count += 1 : updatedArticle.dislikes_count += 1;
+            } else if (normalizedOld !== newReaction) {
+              if (newReaction) {
+                updatedArticle.likes_count += 1;
+                updatedArticle.dislikes_count -= 1;
+              } else {
+                updatedArticle.likes_count -= 1;
+                updatedArticle.dislikes_count += 1;
+              }
+            }
+            updatedArticle.userReaction = newReaction;
+          }
+          state.article = updatedArticle;
+        }
       })
       .addCase(articleReact.rejected, (state, action) => {
         console.error('Reaction failed:', action.payload);
